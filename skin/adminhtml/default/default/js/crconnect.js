@@ -17,9 +17,9 @@ Crconnect.prototype = {
         }
 
         if (key) {
-            var url = this.options.baseConfirmKeyUrl + 'key/' + key;
+            var url = this.options.baseConfirmKeyUrl + 'crconnectkey/' + key;
             new Ajax.Request(url, {
-                method: 'post',
+                method: 'get',
                 onSuccess: function (transport) {
                     var select = $('crroot_crconnect_list_id');
                     self.cleanSelect('crroot_crconnect_list_id');
@@ -73,9 +73,9 @@ Crconnect.prototype = {
         var key = $("crroot_crconnect_api_key").value;
         var self = this;
         if (key && groupId) {
-            var url = crconnectOptions.baseChangeGroupUrl + 'group/' + groupId + '/key/' + key;
+            var url = self.options.baseChangeGroupUrl + 'group/' + groupId + '/crconnectkey/' + key;
             new Ajax.Request(url, {
-                method: 'post',
+                method: 'get',
                 onSuccess: function (transport) {
                     var select = $('crroot_crconnect_form_id');
                     self.cleanSelect('crroot_crconnect_form_id');
@@ -108,11 +108,11 @@ Crconnect.prototype = {
         var selectedValue = element.value,
             id = element.id.replace("_crconnect", ""),
             key = $("crroot_crconnect_api_key").value,
-            url = this.options.baseChangeGroupUrl + 'group/' + selectedValue + '/key/' + key,
+            url = this.options.baseChangeGroupUrl + 'group/' + selectedValue + '/crconnectkey/' + key,
             self = this;
         
         new Ajax.Request(url, {
-            method: 'post',
+            method: 'get',
             onSuccess: function (transport) {
                 var select = $(id + '_formid');
                 self.cleanSelect(id + '_formid');
@@ -190,11 +190,11 @@ Crconnect.prototype = {
 function initCleverReach() 
 {
     try {
-        Crconnect = new Crconnect(crconnectOptions, crconnectElements);
-        Crconnect.confirmMainKey();
-        Event.observe('crroot_crconnect_list_id', 'change', Crconnect.changeGroupId);
-        Event.observe('crroot_crconnect_api_key', 'keyup', Crconnect.confirmEnable);
-        Crconnect.fillSelectedGroups();
+        var CrC = new Crconnect(crconnectOptions, crconnectElements);
+        CrC.confirmMainKey();
+        Event.observe('crroot_crconnect_api_key', 'keyup', function () { CrC.confirmEnable(); });
+        Event.observe('crroot_crconnect_list_id', 'change', function () { CrC.changeGroupId(); });
+        CrC.fillSelectedGroups();
     } catch (e) {
         console.log(e);
     }
