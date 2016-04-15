@@ -565,6 +565,8 @@ class Conlabz_CrConnect_Model_Api extends Mage_Core_Model_Abstract
     {
         $return = false;
 
+        $attributes = $this->_helper->getCustomerAttributes();
+
         $fields = array(
             "firstname"     => "firstname",
             "lastname"      => "lastname",
@@ -588,7 +590,8 @@ class Conlabz_CrConnect_Model_Api extends Mage_Core_Model_Abstract
             $this->_helper->log("CleverReach Connection Error: " . $groupDetails->message);
             return $groupDetails;
         }
-        
+
+        $this->_helper->log($groupDetails->data->attributes);
         foreach ($groupDetails->data->attributes as $a) {
             if (in_array($a->key, $fields)) {
                 unset($fields[$a->key]);

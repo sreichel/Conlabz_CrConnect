@@ -15,6 +15,8 @@ class Conlabz_CrConnect_Helper_Data extends Mage_Core_Helper_Abstract
     const XML_GROUP_KEYS = "crroot/crconnect/groups_keys";
     const XML_PATH_LOGGED_CONFIRM_EMAIL_TEMPLATE = 'crroot/crconnect/confirm_newsletter_logged';
     const XML_IS_SHOW_CUSTOMER_GROUP = 'crroot/crconnect/showgroup';
+    
+    const XML_CUSTOMER_ATTRIBUTES = 'crroot/crconnect/customer_attributes';
 
     const XML_FEED_PASSWORD = 'crroot/csconnect_search/password';
 
@@ -302,7 +304,7 @@ class Conlabz_CrConnect_Helper_Data extends Mage_Core_Helper_Abstract
             ->getData();
     }
 
-    public function prepareUserdata($customer, $custom_fields = false, $deactivate = false)
+    public function prepareUserdata(Mage_Customer_Model_Customer $customer, $custom_fields = false, $deactivate = false)
     {
         $newEmail = $customer->getEmail();
         $shippingAddress = false;
@@ -391,5 +393,10 @@ class Conlabz_CrConnect_Helper_Data extends Mage_Core_Helper_Abstract
     public function getM2eShippingMethods()
     {
         return array("m2eproshipping_m2eproshipping");
+    }
+
+    public function getCustomerAttributes()
+    {
+        return $this->getConfigForStore(self::XML_CUSTOMER_ATTRIBUTES);
     }
 }
