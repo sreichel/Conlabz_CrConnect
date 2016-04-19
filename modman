@@ -5,5 +5,6 @@ app/design/frontend/base/default/layout/crconnect.xml       app/design/frontend/
 app/design/frontend/base/default/template/crconnect/        app/design/frontend/base/default/template/crconnect/
 app/etc/modules/Conlabz_CrConnect.xml                       app/etc/modules/Conlabz_CrConnect.xml
 app/locale/de_DE/Conlabz_CrConnect.csv                      app/locale/de_DE/Conlabz_CrConnect.csv
+shell/crconnect.php                                         shell/crconnect.php
 skin/adminhtml/default/default/images/cleverreach/          skin/adminhtml/default/default/images/cleverreach/
 skin/adminhtml/default/default/js/crconnect.js              skin/adminhtml/default/default/js/crconnect.js
