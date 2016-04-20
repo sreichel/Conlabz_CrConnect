@@ -305,6 +305,10 @@ class Conlabz_CrConnect_Helper_Data extends Mage_Core_Helper_Abstract
     public function prepareUserdata($customer, $custom_fields = false, $deactivate = false)
     {
         $newEmail = $customer->getEmail();
+
+        var_dump($this->getCustomerAttributes());
+
+
         $shippingAddress = false;
         if ($shippingAddress = $customer->getDefaultBillingAddress()) {
             $shippingAddress = $shippingAddress->getData();
