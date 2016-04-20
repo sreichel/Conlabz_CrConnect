@@ -181,7 +181,7 @@ class Conlabz_CrConnect_Model_Api extends Mage_Core_Model_Abstract
     public function receiverSetInactive($email, $groupId = 0)
     {
         $listId = $this->getGroupKey($groupId);
-        $this->_helper->log("CALL: receiverSetInactive - Email".$email." | GroupId:". $groupId);
+        $this->_helper->log("CALL: receiverSetInactive - Email: ".$email." | GroupId:". $groupId);
         return $this->_client->receiverSetInactive($this->_apiKey, $listId, $email);
 
     }
@@ -195,7 +195,7 @@ class Conlabz_CrConnect_Model_Api extends Mage_Core_Model_Abstract
     public function receiverSetActive($email, $groupId = 0)
     {
         $listId = $this->getGroupKey($groupId);
-        $this->_helper->log("CALL: receiverSetActive - Email".$email." | GroupId:". $groupId);
+        $this->_helper->log("CALL: receiverSetActive - Email: ".$email." | GroupId:". $groupId);
         return $this->_client->receiverSetActive($this->_apiKey, $listId, $email);
     }
 
