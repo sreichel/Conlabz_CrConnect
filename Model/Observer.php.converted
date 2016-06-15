@@ -1,0 +1,319 @@
+<?php
+namespace Conlabz\CrConnect\Model;
+
+class Observer
+{
+    // 14 days
+    const SESSION_LIFE = 1209600;
+
+    /**
+     * @var \Magento\Framework\Registry
+     */
+    protected $registry;
+
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    protected $request;
+
+    /**
+     * @var \Magento\Newsletter\Model\SubscriberFactory
+     */
+    protected $newsletterSubscriberFactory;
+
+    /**
+     * @var \Magento\Store\Model\StoreManagerInterface
+     */
+    protected $storeManager;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Magento\Backend\Model\Session
+     */
+    protected $backendSession;
+
+    /**
+     * @var \Magento\Framework\Stdlib\Cookie\CookieMetadata
+     */
+    protected $cookieCookieMetadata;
+
+    /**
+     * @var \Magento\Checkout\Model\Session
+     */
+    protected $checkoutSession;
+
+    /**
+     * @var \Magento\Sales\Model\OrderFactory
+     */
+    protected $salesOrderFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\ApiFactory
+     */
+    protected $crConnectApiFactory;
+
+    /**
+     * @var \Magento\Customer\Model\CustomerFactory
+     */
+    protected $customerCustomerFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\SubscriberFactory
+     */
+    protected $crConnectSubscriberFactory;
+
+    public function __construct(
+        \Magento\Framework\Registry $registry,
+        \Magento\Framework\App\Request\Http $request,
+        \Magento\Newsletter\Model\SubscriberFactory $newsletterSubscriberFactory,
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Magento\Backend\Model\Session $backendSession,
+        \Magento\Framework\Stdlib\Cookie\CookieMetadata $cookieCookieMetadata,
+        \Magento\Checkout\Model\Session $checkoutSession,
+        \Magento\Sales\Model\OrderFactory $salesOrderFactory,
+        \Conlabz\CrConnect\Model\ApiFactory $crConnectApiFactory,
+        \Magento\Customer\Model\CustomerFactory $customerCustomerFactory,
+        \Conlabz\CrConnect\Model\SubscriberFactory $crConnectSubscriberFactory
+    ) {
+        $this->registry = $registry;
+        $this->request = $request;
+        $this->newsletterSubscriberFactory = $newsletterSubscriberFactory;
+        $this->storeManager = $storeManager;
+        $this->crConnectHelper = $crConnectHelper;
+        $this->backendSession = $backendSession;
+        $this->cookieCookieMetadata = $cookieCookieMetadata;
+        $this->checkoutSession = $checkoutSession;
+        $this->salesOrderFactory = $salesOrderFactory;
+        $this->crConnectApiFactory = $crConnectApiFactory;
+        $this->customerCustomerFactory = $customerCustomerFactory;
+        $this->crConnectSubscriberFactory = $crConnectSubscriberFactory;
+    }
+    public function customerSaveAfter($observer)
+    {
+        if (!$this->registry->registry('cr_aftersave_called')) {
+            $this->registry->register('cr_aftersave_called', true);
+        } else {
+            return true;
+        }
+
+        $controller = $this->request->getControllerName();
+        $action = $this->request->getActionName();
+
+        $customer = $observer->getCustomer();
+
+        $email = $customer->getEmail();
+
+        $subscriber = $this->newsletterSubscriberFactory->create()->loadByEmail($email);
+        $subscriber->setEmail($email);
+        if ($this->storeManager->getStore()->isAdmin()) {
+            return true;
+        }
+
+        $subscriptionCheckbox1 = $this->request->getParam('subscription');
+        $subscriptionCheckbox2 = $this->request->getParam('is_subscribed');
+
+        if ($subscriptionCheckbox1 !== null || $subscriptionCheckbox2 !== null) {
+            if (!$subscriber->isSubscribed()) {
+                $status = $this->newsletterSubscriberFactory->create()->subscribe($email);
+                if ($this->crConnectHelper->isDoubleOptInEnabled()) {
+                    $this->backendSession->addSuccess(Mage::helper("core")->__('Confirmation request has been sent.'));
+                } else {
+                    $this->backendSession->addSuccess(Mage::helper("core")->__('Thank you for your subscription.'));
+                }
+            }
+
+        }
+
+        $gsubscription = $this->request->getParam('gsubscription');
+        $groupId = $customer->getGroupId();
+
+        if ($gsubscription !== null) {
+            if (!$subscriber->isSubscribed($groupId)) {
+                $status = $this->newsletterSubscriberFactory->create()->subscribe($email, $groupId);
+                if ($this->crConnectHelper->isDoubleOptInEnabled()) {
+                    $this->backendSession->addSuccess(Mage::helper("core")->__('Confirmation request has been sent.'));
+                } else {
+                    $this->backendSession->addSuccess(Mage::helper("core")->__('Thank you for your subscription.'));
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public function trackingCodesSet()
+    {
+        $mailingId = Mage::getSingleton('core/app')->getRequest()->getParam('crmailing');
+
+        $cookie = $this->cookieCookieMetadata;
+        if ($mailingId) {
+            $cookie->set('crmailing', $mailingId, time()+self::SESSION_LIFE, '/');
+        }
+
+        $customerId = Mage::getSingleton('core/app')->getRequest()->getParam('crcustomer');
+        $cookie = $this->cookieCookieMetadata;
+        if ($customerId) {
+            $cookie->set('crcustomer', $customerId, time()+self::SESSION_LIFE, '/');
+        }
+    }
+
+    public function checkoutSuccess()
+    {
+        if (!$this->registry->registry('order_track_start')) {
+            $this->registry->register('order_track_start', true);
+        } else {
+            return true;
+        }
+
+        if ($this->crConnectHelper->isTrackingEnabled()) {
+            $lastOrderId = $this->checkoutSession->getLastOrderId();
+        } else {
+            $this->crConnectHelper->log("CleverReach_CrConnect: order sycing deactivated");
+            return false;
+        }
+
+        $order = $this->salesOrderFactory->create()->load($lastOrderId);
+        $email = $order->getCustomerEmail();
+
+        if ($this->crConnectHelper->isTrackingEnabled()) {
+            $items = $order->getAllItems();
+            if ($items) {
+                foreach ($items as $item) {
+                    $tmpItem = array();
+                    $tmpItem["order_id"] = $lastOrderId;
+                    $tmpItem["product"] = $item->getName();
+                    $tmpItem["product_id"] = $item->getProductId();
+                    $tmpItem["price"] = round($item->getPrice(), 2);
+                    $tmpItem["quantity"] = (integer)$item->getQtyOrdered();
+                    $tmpItem["purchase_date"] = time();
+                    $tmpItem["currency"] = $order->getData('order_currency_code');
+                    $tmpItem["source"] = "MAGENTO Order";
+
+                    $cookie = $this->cookieCookieMetadata;
+                    if ($cookie->get('crmailing')) {
+                        $tmpItem['mailings_id'] = $cookie->get('crmailing');
+                    }
+                    $this->crConnectApiFactory->create()->receiverAddOrder($email, $tmpItem);
+                }
+            }
+        }
+    }
+
+    public function orderPlacedAfter($observer)
+    {
+        try {
+            $order = $observer->getOrder();
+            if ($this->crConnectHelper->isM2eExclude()) {
+                $shippingMethod = $order->getShippingMethod();
+                $this->crConnectHelper->log("M2E sync disabled -> shipping method: " . $shippingMethod);
+                if (in_array($shippingMethod, $this->crConnectHelper->getM2eShippingMethods())) {
+                    $this->crConnectHelper->log("Its M2E order -> Skip");
+                    return true;
+                }
+            }
+
+            $customer = $this->customerCustomerFactory->create()->load($order->getCustomerId());
+            $email = $order->getCustomerEmail();
+
+            if ($this->crConnectHelper->isForceSyncEnabled()) {
+                $this->crConnectHelper->log("Force sync orders enabled");
+
+                if ($customer->getEmail()) {
+                    $this->crConnectHelper->log("Force sync orders for logged in customer");
+                    $crReceiver = $this->crConnectHelper->prepareUserdata($customer);
+                    $result = $this->crConnectApiFactory->create()->receiverAdd($crReceiver, $customer->getGroupId());
+                    $this->crConnectHelper->log($result);
+                } else {
+                    $this->crConnectHelper->log("Force sync orders for guest customer");
+                    $billingAddress = $order->getBillingAddress();
+                    if ($billingAddress) {
+                        $this->crConnectHelper->log("Prepare info based on billing address");
+                        $crReceiver = array (
+                            'email' => $email,
+                            'source' => 'MAGENTO',
+                            'attributes' => array(
+                                array("key" => "firstname", "value" => $billingAddress->getFirstname()),
+                                array("key" => "lastname", "value" => $billingAddress->getLastname()),
+                                array("key" => "street", "value" => $billingAddress->getStreet()),
+                                array("key" => "zip", "value" => $billingAddress->getPostcode()),
+                                array("key" => "city", "value" => $billingAddress->getCity()),
+                                array("key" => "country", "value" => $billingAddress->getCountryId()),
+                                array("key" => "salutation", "value" => $billingAddress->getPrefix()),
+                                array("key" => "title", "value" => $billingAddress->getSuffix()),
+                                array("key" => "company", "value" => $billingAddress->getCompany())
+                            )
+                        );
+
+                        $cookie = $this->cookieCookieMetadata;
+                        if ($cookie->get('crmailing')) {
+                            $crReceiver['orders'][0]['mailings_id'] = $cookie->get('crmailing');
+                        }
+                        $this->crConnectHelper->log($crReceiver);
+
+                        $result = $this->crConnectApiFactory->create()->receiverAdd($crReceiver);
+                        $this->crConnectHelper->log($result);
+                    }
+                }
+            }
+        } catch (Exception $ex) {
+            $this->crConnectHelper->log("order_save_after Exception");
+            $this->crConnectHelper->log($ex->getMessage());
+        }
+        return true;
+    }
+
+    public function customerDeleted($observer)
+    {
+        $event = $observer->getEvent();
+        $customer = $event->getCustomer();
+        $email = $customer->getEmail();
+        $groupId = $customer->getGroupId();
+
+        $this->crConnectSubscriberFactory->create()->unsubscribe($email);
+        $this->crConnectSubscriberFactory->create()->unsubscribe($email, $groupId);
+    }
+
+    public function configSave()
+    {
+        $currentSection = $this->request->getParam('section');
+        if (in_array($currentSection, array('newsletter', 'crroot')) &&
+            $this->crConnectHelper->isDoubleOptInEnabled()
+        ) {
+            $groupsIds = $this->crConnectHelper->getGroupsIds();
+            $formsIds = $this->crConnectHelper->getFormsIds();
+            $allow = true;
+            foreach ($groupsIds as $groupsId) {
+                if (!$groupsId) {
+                    $allow = false;
+                }
+            }
+            foreach ($formsIds as $formsId) {
+                if (!$formsId) {
+                    $allow = false;
+                }
+            }
+            $formId = $this->crConnectHelper->getDefaultFormId();
+            if (!$formId) {
+                $allow = false;
+            }
+            if (!$allow) {
+                $this->backendSession->addError(__('Double Opt-In is enabled, please select form(s) and group(s) for your customer groups.'));
+            }
+        }
+    }
+
+    public function initCleverReach()
+    {
+        $session = $this->backendSession;
+
+        $setupResult = $this->crConnectApiFactory->create()->setupDefaultCleverReachList();
+        if (!$setupResult) {
+            $session->addError("Could not connect to or receive any data from CleverReach. Please check your API key, selected group(s) and form(s).");
+        }
+    }
+}

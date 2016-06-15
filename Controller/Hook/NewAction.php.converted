@@ -1,0 +1,115 @@
+<?php
+namespace Conlabz\CrConnect\Controller\Hook;
+
+class NewAction extends Conlabz\CrConnect\Controller\Hook;
+{
+
+    /**
+     * @var \Magento\Framework\Session\Generic
+     */
+    protected $generic;
+
+    /**
+     * @var \Magento\Customer\Model\Session
+     */
+    protected $customerSession;
+
+    /**
+     * @var \Magento\Framework\App\Config\ScopeConfigInterface
+     */
+    protected $scopeConfig;
+
+    /**
+     * @var \Psr\Log\LoggerInterface
+     */
+    protected $logger;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Magento\Store\Model\StoreManagerInterface
+     */
+    protected $storeManager;
+
+    public function __construct(
+        \Magento\Framework\Session\Generic $generic,
+        \Magento\Customer\Model\Session $customerSession,
+        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
+        \Psr\Log\LoggerInterface $logger,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Magento\Store\Model\StoreManagerInterface $storeManager
+    ) {
+        $this->generic = $generic;
+        $this->customerSession = $customerSession;
+        $this->scopeConfig = $scopeConfig;
+        $this->logger = $logger;
+        $this->crConnectHelper = $crConnectHelper;
+        $this->storeManager = $storeManager;
+    }
+    public function execute()
+    {
+
+        if ($this->getRequest()->isPost() && $this->getRequest()->getPost('email')) {
+            $session            = $this->generic;
+            $customerSession    = $this->customerSession;
+            $email              = (string) $this->getRequest()->getPost('email');
+
+            $apiKey = trim($this->scopeConfig->getValue('crroot/crconnect/api_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE));
+            $listID = trim($this->scopeConfig->getValue('crroot/crconnect/list_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE));
+            $confirm = trim($this->scopeConfig->getValue('newsletter/subscription/confirm', \Magento\Store\Model\ScopeInterface::SCOPE_STORE));
+
+            if ($apiKey && $listID && !$confirm) {
+                $this->logger->debug("Cleverreach_CrConnect: newsletter signup for $email, no confirmation");
+
+                try {
+                    $client = new \SoapClient($this->crConnectHelper->getWsdl(), array("trace" => true));
+                } catch (Exception $e) {
+                    $this->logger->debug("CleverReach_CrConnect: Error connecting to server: ".$e->getMessage());
+                    $session->addException($e, $this->__('There was a problem with the subscription'));
+                    $this->_redirectReferer();
+                }
+
+
+                $customerHelper = Mage::helper('customer');
+                {
+                    // otherwise if nobody's logged in, ignore the custom
+                    // attributes and just set the name to '(Guest)'
+                try {
+/*                     	echo "<pre>"; */
+/*                     	$result = $client->receiverGetByEmail($apiKey, $listID, 'alex.nuzil@conlabz.de', 1); */
+/*                     	var_dump($result); */
+/*                     	exit; */
+
+                    if ($this->scopeConfig->getValue('crroot/crconnect/showgroup', \Magento\Store\Model\ScopeInterface::SCOPE_STORE) == '1') {
+                        $groupKeys = $this->crConnectHelper->getKeys();
+                        if ($groupId = $customerSession->getCustomerGroupId()) {
+                            if (isset($groupKeys[$groupId])) {
+                                $return = $listID = $groupKeys[$groupId];
+                            }
+                        }
+                    }
+
+                    $result = $client->receiverAdd($apiKey, $listID, array(
+                                "email" => $email,
+                                "source" => "MAGENTO (frontend)",
+                                "attributes" => array('0'=>array('key'=>'store', 'value'=>$this->storeManager->getStore()->getCode(), 'variable'=>'{STORE}'),"newsletter"=>"1"),
+                            ));
+                } catch (Exception $e) {
+                    $this->logger->debug("CleverReach_CrConnect: Error in SOAP call: ".$e->getMessage());
+                    $session->addException($e, $this->__('There was a problem with the subscription'));
+                    $this->_redirectReferer();
+                }
+                }
+            } elseif ($apiKey && $listID && $confirm) {
+                $this->logger->debug("Cleverreach_CrConnect: skiping $email, waiting for confirmation");
+            } else {
+                $this->logger->debug("Cleverreach_CrConnect: error: API key and/or ListID missing");
+            }
+        }
+
+        parent::newAction();
+    }
+}

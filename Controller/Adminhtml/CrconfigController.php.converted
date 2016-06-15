@@ -1,0 +1,61 @@
+<?php
+namespace ;
+
+class  extends \Magento\Backend\App\Action
+{
+    const EMPTY_CODE = "empty";
+
+    /**
+     * @var \Conlabz\CrConnect\Model\ApiFactory
+     */
+    protected $crConnectApiFactory;
+
+    public function __construct(
+        \Conlabz\CrConnect\Model\ApiFactory $crConnectApiFactory
+    ) {
+        $this->crConnectApiFactory = $crConnectApiFactory;
+    }
+    public function confirmKeyAction()
+    {
+        $apiKey = $this->getRequest()->getParam("crconnectkey");
+        $api = $this->crConnectApiFactory->create();
+        if ($api->isConnected()) {
+            $groups = $api->getGroupsForKey($apiKey);
+            if ($groups) {
+                $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($groups));
+            } else {
+                $this->getResponse()->setBody(self::EMPTY_CODE);
+            }
+        }
+    }
+
+    public function changeGroupAction()
+    {
+        $groupId = $this->getRequest()->getParam("group");
+        $apiKey = $this->getRequest()->getParam("crconnectkey");
+
+        $api = $this->crConnectApiFactory->create();
+        if ($api->isConnected()) {
+            $forms = $api->getFormsForGroup($apiKey, $groupId);
+            if ($forms) {
+                $this->getResponse()->setBody(Mage::helper('core')->jsonEncode($forms));
+            } else {
+                $this->getResponse()->setBody(self::EMPTY_CODE);
+            }
+        }
+    }
+
+    public function getGroupsBlockAction()
+    {
+        $this->getResponse()->setBody(
+            $this->getLayout()
+                ->createBlock('crconnect/config_groupsApis')
+                ->toHtml()
+        );
+    }
+
+    protected function _isAllowed()
+    {
+        return true;
+    }
+}

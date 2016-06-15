@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="controller_front_init_before">
+        <observer name="crconnect_controller_front_init_before" instance="Conlabz\CrConnect\Observer\trackingCodesSet"/>
+    </event>
+    <event name="customer_session_init">
+        <observer name="crconnect_customer_session_init" instance="Conlabz\CrConnect\Observer\trackingCodesSet"/>
+    </event>
+    <event name="checkout_onepage_controller_success_action">
+        <observer name="crconnect_checkout_onepage_controller_success_action" instance="Conlabz\CrConnect\Observer\checkoutSuccess"/>
+    </event>
+    <event name="sales_order_place_after">
+        <observer name="crconnect_sales_order_place_after" instance="Conlabz\CrConnect\Observer\orderPlacedAfter"/>
+    </event>
+    <event name="customer_delete_before">
+        <observer name="crconnect_customer_delete_before" instance="Conlabz\CrConnect\Observer\customerDeleted"/>
+    </event>
+    <event name="customer_save_after">
+        <observer name="crconnect_adminhtml_customer_save_after" instance="Conlabz\CrConnect\Observer\customerSaveAfter"/>
+    </event>
+</config>

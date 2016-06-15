@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <body>
+        <referenceBlock name="customer_account_dashboard_info">
+            <action method="setTemplate">
+                <argument name="template" xsi:type="string">Conlabz_CrConnect::crconnect/customer/account/dashboard/info.phtml</argument>
+            </action>
+        </referenceBlock>
+    </body>
+</page>

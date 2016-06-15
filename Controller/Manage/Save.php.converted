@@ -1,0 +1,89 @@
+<?php
+namespace Conlabz\CrConnect\Controller\Manage;
+
+class Save extends Conlabz\CrConnect\Controller\Manage;
+{
+
+    /**
+     * @var \Magento\Customer\Model\Session
+     */
+    protected $customerSession;
+
+    /**
+     * @var \Magento\Newsletter\Model\SubscriberFactory
+     */
+    protected $newsletterSubscriberFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\SubscriberFactory
+     */
+    protected $crConnectSubscriberFactory;
+
+    public function __construct(
+        \Magento\Customer\Model\Session $customerSession,
+        \Magento\Newsletter\Model\SubscriberFactory $newsletterSubscriberFactory,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Conlabz\CrConnect\Model\SubscriberFactory $crConnectSubscriberFactory
+    ) {
+        $this->customerSession = $customerSession;
+        $this->newsletterSubscriberFactory = $newsletterSubscriberFactory;
+        $this->crConnectHelper = $crConnectHelper;
+        $this->crConnectSubscriberFactory = $crConnectSubscriberFactory;
+    }
+    public function execute()
+    {
+        if (!$this->_validateFormKey()) {
+            return $this->_redirect('customer/account');
+        }
+        try {
+            $email = $this->customerSession->getCustomer()->getEmail();
+            $subscriber = $this->newsletterSubscriberFactory->create()->loadByEmail($email);
+            $subscriber->setEmail($this->customerSession->getCustomer()->getEmail());
+
+            if ((boolean) $this->getRequest()->getParam('is_subscribed', false)) {
+                if (!$subscriber->isSubscribed()) {
+                    $status = $this->newsletterSubscriberFactory->create()->subscribe($email);
+                    if ($this->crConnectHelper->isDoubleOptInEnabled()) {
+                        $this->customerSession->addSuccess($this->__('Confirmation request has been sent.'));
+                    } else {
+                        $this->customerSession->addSuccess($this->__('Thank you for your subscription.'));
+                    }
+
+                }
+            } else {
+                if ($subscriber->isSubscribed()) {
+                    $status = $this->crConnectSubscriberFactory->create()->unsubscribe($email);
+                    $this->customerSession->addSuccess($this->__('The subscription has been removed.'));
+                }
+            }
+
+            $groupId = $this->customerSession->getCustomerGroupId();
+            if ($groupId > 1) {
+                if ((boolean) $this->getRequest()->getParam('is_gsubscribed', false)) {
+                    if (!$subscriber->isSubscribed($groupId)) {
+                        $status = $this->newsletterSubscriberFactory->create()->subscribe($this->customerSession->getCustomer()->getEmail(), $groupId);
+                        if ($this->crConnectHelper->isDoubleOptInEnabled()) {
+                            $this->customerSession->addSuccess($this->__('Confirmation request has been sent.'));
+                        } else {
+                            $this->customerSession->addSuccess($this->__('Thank you for your subscription.'));
+                        }
+                    }
+                } else {
+                    if ($subscriber->isSubscribed($groupId)) {
+                        $status = $this->crConnectSubscriberFactory->create()->unsubscribe($email, $groupId);
+                        $this->customerSession->addSuccess($this->__('The subscription has been removed.'));
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            $this->customerSession->addError($e->getMessage());
+            $this->customerSession->addError($this->__('An error occurred while saving your subscription.'));
+        }
+        $this->_redirect('customer/account');
+    }
+}

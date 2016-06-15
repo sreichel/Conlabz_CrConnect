@@ -1,0 +1,52 @@
+<?php
+namespace Conlabz\CrConnect\Controller\Subscriber;
+
+class NewAction extends Conlabz\CrConnect\Controller\Subscriber;
+{
+
+    /**
+     * @var \Magento\Framework\Session\Generic
+     */
+    protected $generic;
+
+    /**
+     * @var \Magento\Newsletter\Model\SubscriberFactory
+     */
+    protected $newsletterSubscriberFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    public function __construct(
+        \Magento\Framework\Session\Generic $generic,
+        \Magento\Newsletter\Model\SubscriberFactory $newsletterSubscriberFactory,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper
+    ) {
+        $this->generic = $generic;
+        $this->newsletterSubscriberFactory = $newsletterSubscriberFactory;
+        $this->crConnectHelper = $crConnectHelper;
+    }
+    public function execute()
+    {
+        if ($this->getRequest()->isPost() && $this->getRequest()->getPost('email')) {
+            $session = $this->generic;
+            $email = (string) $this->getRequest()->getPost('email');
+            try {
+                $status = $this->newsletterSubscriberFactory->create()->subscribe($email);
+                if ($status) {
+                    if ($this->crConnectHelper->isDoubleOptInEnabled()) {
+                        $this->generic->addSuccess($this->__('Confirmation request has been sent.'));
+                    } else {
+                        $this->generic->addSuccess($this->__('Thank you for your subscription.'));
+                    }
+                }
+                $this->_redirectReferer();
+            } catch (Exception $e) {
+                $session->addException($e, $this->__('There was a problem with the subscription'));
+                $this->_redirectReferer();
+            }
+        }
+    }
+}

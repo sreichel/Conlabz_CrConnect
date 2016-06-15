@@ -1,0 +1,139 @@
+<?php
+namespace Conlabz\CrConnect\Controller\Hook;
+
+class Confirm extends Conlabz\CrConnect\Controller\Hook;
+{
+
+    /**
+     * @var \Magento\Newsletter\Model\SubscriberFactory
+     */
+    protected $newsletterSubscriberFactory;
+
+    /**
+     * @var \Magento\Framework\Session\Generic
+     */
+    protected $generic;
+
+    /**
+     * @var \Psr\Log\LoggerInterface
+     */
+    protected $logger;
+
+    /**
+     * @var \Magento\Framework\App\Config\ScopeConfigInterface
+     */
+    protected $scopeConfig;
+
+    /**
+     * @var \Magento\Customer\Model\CustomerFactory
+     */
+    protected $customerCustomerFactory;
+
+    /**
+     * @var \Magento\Store\Model\StoreManagerInterface
+     */
+    protected $storeManager;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    public function __construct(
+        \Magento\Newsletter\Model\SubscriberFactory $newsletterSubscriberFactory,
+        \Magento\Framework\Session\Generic $generic,
+        \Psr\Log\LoggerInterface $logger,
+        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
+        \Magento\Customer\Model\CustomerFactory $customerCustomerFactory,
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper
+    ) {
+        $this->newsletterSubscriberFactory = $newsletterSubscriberFactory;
+        $this->generic = $generic;
+        $this->logger = $logger;
+        $this->scopeConfig = $scopeConfig;
+        $this->customerCustomerFactory = $customerCustomerFactory;
+        $this->storeManager = $storeManager;
+        $this->crConnectHelper = $crConnectHelper;
+    }
+    public function execute()
+    {
+        $id    = (int) $this->getRequest()->getParam('id');
+        $code  = (string) $this->getRequest()->getParam('code');
+
+        if ($id && $code) {
+            $subscriber = $this->newsletterSubscriberFactory->create()->load($id);
+            $session = $this->generic;
+
+            if ($subscriber->getId() && $subscriber->getCode()) {
+                if ($subscriber->confirm($code)) {
+                    $this->logger->debug("Cleverreach_CrConnect: newsletter signup for ".$subscriber->getEmail().", confirmation");
+
+                    $apiKey = trim($this->scopeConfig->getValue('crroot/crconnect/api_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE));
+                    $listID = trim($this->scopeConfig->getValue('crroot/crconnect/list_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE));
+                    $confirm = trim($this->scopeConfig->getValue('newsletter/subscription/confirm', \Magento\Store\Model\ScopeInterface::SCOPE_STORE));
+
+
+
+                    $customer = $this->customerCustomerFactory->create()->setWebsiteId($this->storeManager->getStore()->getWebsiteId())->loadByEmail($subscriber->getEmail());
+
+                    if ($customer->getId()) {
+                        if ($this->scopeConfig->getValue('crroot/crconnect/showgroup', \Magento\Store\Model\ScopeInterface::SCOPE_STORE) == '1') {
+                            $groupKeys = $this->crConnectHelper->getKeys();
+                            if ($groupId = $customer->getGroupId()) {
+                                if (isset($groupKeys[$groupId])) {
+                                    $listID = $groupKeys[$groupId];
+                                }
+                            }
+                        }
+
+                    }
+
+                    try {
+                        $client = new \SoapClient(
+                            $this->crConnectHelper->getWsdl(),
+                            array("trace" => true)
+                        );
+                    } catch (Exception $e) {
+                        $this->logger->debug("CleverReach_CrConnect: Error connecting to server: ".$e->getMessage());
+                        $session->addException($e, $this->__('There was a problem with the subscription'));
+                        $this->_redirectReferer();
+                    }
+
+                    try {
+                        $result = $client->receiverAdd($apiKey, $listID, array(
+                                "email" => $subscriber->getEmail(),
+                                "source" => "MAGENTO (frontend)",
+                                "attributes" => array("key" => "newsletter", "value" => "1"),
+                        ));
+
+                        if ($result->status!="SUCCESS" && $result->statuscode == "50") {
+                            $result = $client->receiverUpdate($apiKey, $listID, array(
+                                "email" => $subscriber->getEmail(),
+                                "source" => "MAGENTO (frontend)",
+                                "attributes" => array("key" => "newsletter", "value" => "1"),
+                                "deactivated"=>0
+                            ));
+
+                        }
+
+                    } catch (Exception $e) {
+                        $this->logger->debug("CleverReach_CrConnect: Error in SOAP call: ".$e->getMessage());
+                        $session->addException($e, $this->__('Subscription was invalid'));
+                        $this->_redirectReferer();
+                    }
+
+                    parent::confirmAction();
+                } else {
+                    $session->addError($this->__('Invalid subscription confirmation code'));
+                }
+            } else {
+                $session->addError($this->__('Invalid subscription ID'));
+            }
+        }
+
+        $this->_redirectUrl(Mage::getBaseUrl());
+    }
+
+
+    }

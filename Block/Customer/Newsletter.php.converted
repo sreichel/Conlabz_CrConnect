@@ -1,0 +1,85 @@
+<?php
+namespace Conlabz\CrConnect\Block\Customer;
+
+class Newsletter extends \Magento\Customer\Block\Newsletter
+{
+    private $_api;
+
+    /**
+     * @var \Magento\Customer\Model\Session
+     */
+    protected $customerSession;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\ApiFactory
+     */
+    protected $crConnectApiFactory;
+
+    /**
+     * @var \Magento\Customer\Model\GroupFactory
+     */
+    protected $customerGroupFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Magento\Store\Model\StoreManagerInterface
+     */
+    protected $storeManager;
+
+    public function __construct(
+        \Magento\Customer\Model\Session $customerSession,
+        \Conlabz\CrConnect\Model\ApiFactory $crConnectApiFactory,
+        \Magento\Customer\Model\GroupFactory $customerGroupFactory,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Magento\Store\Model\StoreManagerInterface $storeManager
+    )
+    {
+        $this->customerSession = $customerSession;
+        $this->crConnectApiFactory = $crConnectApiFactory;
+        $this->customerGroupFactory = $customerGroupFactory;
+        $this->crConnectHelper = $crConnectHelper;
+        $this->storeManager = $storeManager;
+        $this->setCustomerGroupId($this->customerSession->getCustomerGroupId());
+        $this->_api = $this->crConnectApiFactory->create();
+
+        parent::__construct();
+    }
+
+    public function getCustomerGroupName()
+    {
+        $groupName = $this->customerGroupFactory->create()->load($this->getCustomerGroupId())->getCode();
+        return $groupName;
+    }
+
+    /**
+     * Check if Customer Group not default
+     *
+     * @return bool
+     */
+    public function isDefaultGroupUser()
+    {
+        return $this->crConnectHelper->isDefaultGroupUser($this->getCustomerGroupId());
+    }
+
+    public function isDefaultSubscribed()
+    {
+        return $this->_api->isSubscribed($this->customerSession->getCustomer()->getEmail());
+    }
+
+    public function isCustomSubscribed()
+    {
+        return $this->_api->isSubscribed(
+            $this->customerSession->getCustomer()->getEmail(),
+            $this->customerSession->getCustomerGroupId()
+        );
+    }
+
+    public function getAction()
+    {
+        return $this->getUrl('*/*/save', array('_secure' => $this->storeManager->getStore()->isCurrentlySecure()));
+    }
+}

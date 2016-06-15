@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <body>
+        <referenceContainer name="my.account.wrapper">
+            <block template="Conlabz_CrConnect::crconnect/customer/form/newsletter.phtml" class="Conlabz\CrConnect\Block\Customer\Newsletter" name="customer_newsletter">
+                <block label="Newsletter Subscription Form Before" class="Mage\Page\Block\Html\Wrapper" name="customer.newsletter.form.before" as="form_before">
+                    <action method="setMayBeInvisible">
+                        <argument name="value" xsi:type="string">1</argument>
+                    </action>
+                </block>
+            </block>
+        </referenceContainer>
+    </body>
+</page>

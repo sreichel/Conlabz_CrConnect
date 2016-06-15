@@ -1,0 +1,131 @@
+<?php
+namespace Conlabz\CrConnect\Block\Adminhtml\Customer\Edit\Tab;
+
+class Newsletter extends \Magento\Customer\Block\Adminhtml\Edit\Tab\Newsletter
+{
+
+    /**
+     * @var \Magento\Framework\Registry
+     */
+    protected $registry;
+
+    /**
+     * @var \Magento\Newsletter\Model\SubscriberFactory
+     */
+    protected $newsletterSubscriberFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Magento\Customer\Model\GroupFactory
+     */
+    protected $customerGroupFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\ApiFactory
+     */
+    protected $crConnectApiFactory;
+
+    /**
+     * @var \Magento\Framework\Data\FormFactory
+     */
+    protected $formFactory;
+
+    public function __construct(
+        \Magento\Framework\Registry $registry,
+        \Magento\Newsletter\Model\SubscriberFactory $newsletterSubscriberFactory,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Magento\Customer\Model\GroupFactory $customerGroupFactory,
+        \Conlabz\CrConnect\Model\ApiFactory $crConnectApiFactory,
+        \Magento\Framework\Data\FormFactory $formFactory
+    ) {
+        $this->formFactory = $formFactory;
+        $this->registry = $registry;
+        $this->newsletterSubscriberFactory = $newsletterSubscriberFactory;
+        $this->crConnectHelper = $crConnectHelper;
+        $this->customerGroupFactory = $customerGroupFactory;
+        $this->crConnectApiFactory = $crConnectApiFactory;
+    }
+    public function initForm()
+    {
+
+        $form = $this->formFactory->create();
+        $form->setHtmlIdPrefix('_newsletter');
+        $customer = $this->registry->registry('current_customer');
+        $subscriber = $this->newsletterSubscriberFactory->create()->loadByCustomer($customer);
+        $this->registry->register('subscriber', $subscriber);
+
+        $this->setForm($form);
+        return $this;
+
+        
+        /*
+         * Next code wa have for displaying newsletter groups for subscribe.
+         * But In backend we have problems with assigning customers to Store based on previois subscriprion (magento part feature)
+         * So this code deaktivated at the moment
+         */
+        if ($customer->getWebsiteId() == 0) {
+            $this->setForm($form);
+            return $this;
+        }
+
+        $fieldset = $form->addFieldset('base_fieldset', array('legend'=>Mage::helper('customer')->__('Newsletter Information')));
+
+        $isMultiply = $this->crConnectHelper->getGroupsIds($customer->getGroupId());
+        if (!$this->crConnectHelper->isShowDefaultGroup() || !$isMultiply) {
+            $fieldset->addField(
+                'subscription',
+                'checkbox',
+                array(
+                        'label' => Mage::helper('customer')->__('Subscribed to Newsletter?'),
+                        'name'  => 'subscription'
+                 )
+            );
+
+            if ($customer->isReadonly()) {
+                $form->getElement('subscription')->setReadonly(true, true);
+            }
+            $this->crConnectHelper->setCurrentStoreId($subscriber->getStoreId());
+            $form->getElement('subscription')->setIsChecked($subscriber->isSubscribed());
+
+        }
+        
+        if ($this->crConnectHelper->isDefaultGroupUser($customer->getGroupId())) {
+            $groupName = $this->customerGroupFactory->create()->load($customer->getGroupId())->getCode();
+            $fieldset->addField(
+                'gsubscription',
+                'checkbox',
+                array(
+                   'label' => Mage::helper('customer')->__('Subscribed to %s Newsletter?', $groupName),
+                   'name'  => 'gsubscription'
+                )
+            );
+            
+            $ifCustomSubscribed = $this->crConnectApiFactory->create()->isSubscribed(
+                $customer->getEmail(),
+                $customer->getGroupId()
+            );
+            
+            $form->getElement('gsubscription')->setIsChecked($ifCustomSubscribed);
+
+        }
+        
+        if ($changedDate = $this->getStatusChangedDate()) {
+             $fieldset->addField(
+                 'change_status_date',
+                 'label',
+                 array(
+                        'label' => $subscriber->isSubscribed() ? Mage::helper('customer')->__('Last Date Subscribed') : Mage::helper('customer')->__('Last Date Unsubscribed'),
+                        'value' => $changedDate,
+                        'bold'  => true
+                 )
+             );
+        }
+
+        $this->setForm($form);
+        return $this;
+    }
+}

@@ -1,0 +1,100 @@
+<?php
+namespace Conlabz\CrConnect\Model\Newsletter;
+
+
+class Subscriber extends \Magento\Newsletter\Model\Subscriber
+{
+
+    /*
+     * Check If customer is subscribed
+     */
+
+    /**
+     * @var \Magento\Customer\Model\Session
+     */
+    protected $customerSession;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\ApiFactory
+     */
+    protected $crConnectApiFactory;
+
+    /**
+     * @var \Magento\Customer\Model\CustomerFactory
+     */
+    protected $customerCustomerFactory;
+
+    /**
+     * @var \Magento\Store\Model\StoreManagerInterface
+     */
+    protected $storeManager;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\SubscriberFactory
+     */
+    protected $crConnectSubscriberFactory;
+
+    public function __construct(
+        \Magento\Customer\Model\Session $customerSession,
+        \Conlabz\CrConnect\Model\ApiFactory $crConnectApiFactory,
+        \Magento\Customer\Model\CustomerFactory $customerCustomerFactory,
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Conlabz\CrConnect\Model\SubscriberFactory $crConnectSubscriberFactory
+    ) {
+        $this->customerSession = $customerSession;
+        $this->crConnectApiFactory = $crConnectApiFactory;
+        $this->customerCustomerFactory = $customerCustomerFactory;
+        $this->storeManager = $storeManager;
+        $this->crConnectHelper = $crConnectHelper;
+        $this->crConnectSubscriberFactory = $crConnectSubscriberFactory;
+    }
+    public function isSubscribed($groupId = 0)
+    {
+
+        if (!$this->getEmail()) {
+            $this->setEmail($this->customerSession->getCustomer()->getEmail());
+        }
+        return $this->crConnectApiFactory->create()->isSubscribed($this->getEmail(), $groupId);
+    }
+
+    /**
+     * Subscribes by email
+     *
+     * @param string $email
+     * @throws \Exception
+     * @return int
+     */
+    public function subscribe($email, $groupId = 0)
+    {
+
+        if (Mage::helper("customer")->isLoggedIn()) {
+            $customerSession = $this->customerSession;
+            $customer = $customerSession->getCustomer();
+        } else {
+            $customer = $this->customerCustomerFactory->create()->setWebsiteId($this->storeManager->getWebsite()->getId())->loadByEmail($email);
+            $customer->setEmail($email);
+        }
+        
+        if (!$this->isSubscribed($groupId)) {
+            if ($this->crConnectHelper->isDoubleOptInEnabled()) {
+                return $this->crConnectSubscriberFactory->create()->formsSendActivationMail($customer, $groupId);
+            } else {
+                return $this->crConnectSubscriberFactory->create()->subscribe($customer, $groupId);
+            }
+        } else {
+            return false;
+        }
+    }
+    public function sendConfirmationSuccessEmail()
+    {
+        if (!$this->crConnectHelper->isDoubleOptInEnabled()) {
+            parent::sendConfirmationSuccessEmail();
+        }
+    }
+}

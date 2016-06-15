@@ -1,0 +1,9 @@
+<?php
+namespace Conlabz\CrConnect\Controller;
+
+
+include "Mage/Newsletter/controllers/ManageController.php";
+
+abstract class Manage extends Mage_Newsletter_ManageController
+{
+}

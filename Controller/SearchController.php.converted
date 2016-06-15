@@ -1,0 +1,65 @@
+<?php
+namespace Conlabz\CrConnect\Controller;
+
+class Search extends \Magento\Framework\App\Action\Action
+{
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\SearchFactory
+     */
+    protected $crConnectSearchFactory;
+
+    public function __construct(
+        \Magento\Framework\App\Action\Context $context,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Conlabz\CrConnect\Model\SearchFactory $crConnectSearchFactory
+    ) {
+        $this->crConnectHelper = $crConnectHelper;
+        $this->crConnectSearchFactory = $crConnectSearchFactory;
+        parent::__construct(
+            $context
+        );
+    }
+
+    public function indexAction()
+    {
+        $systemPassword = $this->crConnectHelper->getCleverReachFeedPassword();
+
+        $store = $this->getRequest()->getParam('store');
+        $password = $this->getRequest()->getParam('password');
+
+        if ($systemPassword && $password != $systemPassword) {
+            $this->getResponse()
+                ->setHeader('HTTP/1.1','403 Forbidden')
+                ->setBody('You have no permissions to view this page')
+                ->sendResponse();
+            exit;
+        }
+
+        // make sure to set the correct store, so that correct categories and products are used
+        Mage::app()->setCurrentStore($store);
+
+        $search = $this->crConnectSearchFactory->create();
+        $action = $this->getRequest()->getParam('get', 'filter');
+        $returnData = array();
+        switch ($action) {
+            case 'filter':
+                $returnData = $search->getFilter();
+                break;
+            case 'search':
+                $category = $this->getRequest()->getParam('category', false);
+                $product = $this->getRequest()->getParam('product', '');
+                $returnData = $search->getSearch($category, $product, $store);
+                break;
+        }
+
+        $this->getResponse()
+            ->setHeader('Content-Type', 'application/json')
+            ->setBody(Mage::helper('core')->jsonEncode($returnData));
+    }
+}

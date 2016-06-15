@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <head>
+        <action method="addItem">
+            <argument name="type" xsi:type="string">skin_js</argument>
+            <argument name="name" xsi:type="string">js/crconnect.js</argument>
+        </action>
+    </head>
+    <body>
+        <referenceContainer name="before_body_end">
+            <block template="Conlabz_CrConnect::crconnect/config.phtml" class="Magento\Backend\Block\Template" name="crconnect.config"/>
+        </referenceContainer>
+    </body>
+</page>

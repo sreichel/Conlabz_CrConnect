@@ -1,0 +1,52 @@
+<?php
+namespace ;
+
+class  extends \Magento\Backend\App\Action
+{
+    /*
+     * Accounts list action
+     */
+
+    /**
+     * @var \Conlabz\CrConnect\Model\ApiFactory
+     */
+    protected $crConnectApiFactory;
+
+    /**
+     * @var \Magento\Backend\Model\Session
+     */
+    protected $backendSession;
+
+    public function __construct(
+        \Conlabz\CrConnect\Model\ApiFactory $crConnectApiFactory,
+        \Magento\Backend\Model\Session $backendSession
+    ) {
+        $this->crConnectApiFactory = $crConnectApiFactory;
+        $this->backendSession = $backendSession;
+    }
+    public function synchronizeAction()
+    {
+        $syncedUsers = $this->crConnectApiFactory->create()->synchronize();
+        $result = array();
+
+        if ($syncedUsers !== false) {
+            $result['error'] = false;
+            $result['message'] = __("Synchronization successfull. %s users were transmitted.", $syncedUsers);
+            $this->backendSession->addSuccess(__("Synchronization successfull. %s users were transmitted.", $syncedUsers));
+        } else {
+            $result['error'] = true;
+            $result['message'] = __("Error occured while synchronization process. Please try again later.");
+            $this->backendSession->addError(__("Error occured while synchronization process. Please try again later."));
+        }
+
+        $this->getResponse()->setBody(json_encode($result));
+
+    }
+
+    protected function _isAllowed()
+    {
+
+        return true;
+
+    }
+}

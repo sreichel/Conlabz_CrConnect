@@ -1,0 +1,15 @@
+<?php
+namespace Conlabz\CrConnect\Block\Config;
+
+class Url extends \Magento\Config\Block\System\Config\Form\Field
+{
+    /*
+     * Generate Feed URL for copy/paste
+     */
+    protected function _getElementHtml(\Magento\Framework\Data\Form\Element\AbstractElement $element)
+    {
+        $url = Mage::getUrl('crconnect/search/index');
+        $url .= "<font color='red'>store/1/</font>";
+        return "<b>".$url."</b>";
+    }
+}

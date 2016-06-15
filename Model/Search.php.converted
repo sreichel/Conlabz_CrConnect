@@ -1,0 +1,139 @@
+<?php
+namespace Conlabz\CrConnect\Model;
+
+
+class Search
+{
+
+    /**
+     * @var \Magento\Store\Model\StoreManagerInterface
+     */
+    protected $storeManager;
+
+    /**
+     * @var \Magento\Catalog\Model\CategoryFactory
+     */
+    protected $catalogCategoryFactory;
+
+    /**
+     * @var \Magento\Catalog\Model\ResourceModel\Product\CollectionFactory
+     */
+    protected $catalogResourceModelProductCollectionFactory;
+
+    public function __construct(
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Magento\Catalog\Model\CategoryFactory $catalogCategoryFactory,
+        \Magento\Catalog\Model\ResourceModel\Product\CollectionFactory $catalogResourceModelProductCollectionFactory
+    ) {
+        $this->storeManager = $storeManager;
+        $this->catalogCategoryFactory = $catalogCategoryFactory;
+        $this->catalogResourceModelProductCollectionFactory = $catalogResourceModelProductCollectionFactory;
+    }
+    /**
+     * Get Search Filters values
+     */
+    public function getFilter()
+    {
+        $filter = array();
+
+        // Generate Categories Filter
+
+        $filter[0] = array();
+        $categoryFilter = array();
+        $categoryFilter['name'] = __("Category");
+        $categoryFilter['required'] = false;
+        $categoryFilter['query_key'] = "category";
+        $categoryFilter['type'] = "dropdown";
+
+        $rootcatId = $this->storeManager->getStore()->getRootCategoryId();
+        $categories = $this->catalogCategoryFactory->create()->getCategories($rootcatId);
+
+
+        $categoriesTree = $this->getCategories($categories);
+        $categoryFilter['values'] = array_merge(array(array("text" => "", "value" => "")), $categoriesTree);
+
+        $filter[0] = $categoryFilter;
+
+        $filter[1] = array();
+        $productFilter = array();
+        $productFilter['name'] = __("Product");
+        $productFilter['required'] = false;
+        $productFilter['query_key'] = "product";
+        $productFilter['type'] = "input";
+
+        $filter[1] = $productFilter;
+
+        return $filter;
+    }
+
+    /**
+     * Get categories tree recurcively function
+     *
+     * @return array of categories of one level
+     */
+    public function getCategories($categories)
+    {
+        $array = array();
+        foreach ($categories as $category) {
+            $prefix = "";
+            for ($i = 0; $i < $category->getLevel() - 2; $i++) {
+                $prefix .= "&nbsp;";
+            }
+            $array[] = array("text" => $prefix . $category->getName(), "value" => $category->getId()); //In this line we get an a link for the product and product count of that category
+            if ($category->hasChildren()) {
+                $children = $category->getChildrenCategories(); // $children get a list of all subcategories
+                $array = array_merge($array, $this->getCategories($children)); //recursive call the get_categories function again.
+            }
+        }
+        return $array;
+    }
+
+    /**
+     * Get Search result
+     *
+     * @param int category - category ID
+     * @param array
+     */
+    public function getSearch($category = false, $product = "", $store = false)
+    {
+        $products = $this->catalogResourceModelProductCollectionFactory->create()->addAttributeToSelect("name")
+                ->addAttributeToSelect("description")
+                ->addAttributeToSelect("image")
+                ->addAttributeToSelect("price");
+
+        if ($store) {
+            $products->setStoreId($store);
+        }
+
+        if ($category) {
+            $category = $this->catalogCategoryFactory->create()->load($category);
+            $products->addCategoryFilter($category);
+        }
+        if ($product) {
+            $products->addFieldToFilter("name", array("like" => "%{$product}%"));
+        }
+
+        $search = array();
+        $search['settings']['type'] = "product";
+        $search['settings']['link_editable'] = true;
+        $search['settings']['link_text_editable'] = true;
+        $search['settings']['image_size_editable'] = true;
+
+        $items = array();
+        if ($category || $product) {
+            foreach ($products as $product) {
+                $item = array();
+                $item['title'] = $product->getName();
+                $item['description'] = $product->getDescription();
+                $item['image'] = $product->getImageUrl();
+                $item['url'] = $product->getProductUrl();
+                $item['price'] = Mage::helper('core')->formatPrice($product->getPrice());
+
+                $items[] = $item;
+            }
+        }
+
+        $search['items'] = $items;
+        return $search;
+    }
+}

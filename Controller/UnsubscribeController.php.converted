@@ -1,0 +1,129 @@
+<?php
+namespace Conlabz\CrConnect\Controller;
+
+
+/**
+ * Conlabz GmbH
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/osl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@magentocommerce.com and you will be sent a copy immediately.
+ *
+ * @category   CleverReach
+ * @package    Conlabz_CrConnect
+ * @copyright  Copyright (c) 2012 Conlabz GmbH (http://conlabz.de)
+ * @license    http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
+ */
+
+class Unsubscribe extends \Magento\Framework\App\Action\Action
+{
+
+    /**
+     * @var \Magento\Framework\App\Config\ScopeConfigInterface
+     */
+    protected $scopeConfig;
+
+    /**
+     * @var \Magento\Framework\Session\Generic
+     */
+    protected $generic;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Psr\Log\LoggerInterface
+     */
+    protected $logger;
+
+    /**
+     * @var \Magento\Newsletter\Model\SubscriberFactory
+     */
+    protected $newsletterSubscriberFactory;
+
+    /**
+     * @var \Magento\Customer\Model\Session
+     */
+    protected $customerSession;
+
+    public function __construct(
+        \Magento\Framework\App\Action\Context $context,
+        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
+        \Magento\Framework\Session\Generic $generic,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Psr\Log\LoggerInterface $logger,
+        \Magento\Newsletter\Model\SubscriberFactory $newsletterSubscriberFactory,
+        \Magento\Customer\Model\Session $customerSession
+    ) {
+        $this->scopeConfig = $scopeConfig;
+        $this->generic = $generic;
+        $this->crConnectHelper = $crConnectHelper;
+        $this->logger = $logger;
+        $this->newsletterSubscriberFactory = $newsletterSubscriberFactory;
+        $this->customerSession = $customerSession;
+        parent::__construct(
+            $context
+        );
+    }
+
+    public function indexAction()
+    {
+        // don't do anything if we didn't get the email parameter
+        $request = $this->getRequest();
+        if ($email = $request->getParam('email')) {
+            $apiKey = trim($this->scopeConfig->getValue('newsletter/crconnect/api_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE));
+            $listID = trim($this->scopeConfig->getValue('newsletter/crconnect/list_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE));
+            $session = $this->generic;
+            // Check that the email address actually is unsubscribed in
+            // CleverReach
+            if ($apiKey && $listID) {
+                try {
+                    $client = new \SoapClient($this->crConnectHelper->getWsdl(), array("trace" => true));
+                } catch (Exception $e) {
+                    $this->logger->debug("CleverReach_CrConnect: Error connecting to CleverReach server: ".$e->getMessage());
+                    $session->addException($e, $this->__('There was a problem with the subscription'));
+                    $this->_redirectReferer();
+                }
+
+                //get data from cleverreach
+                $this->logger->debug("CleverReach_CrConnect: Error - ".$tmp->message);
+                $tmp = $client->receiverGetByEmail($apiKey, $email);
+                if ($tmp->status!="SUCCESS") {
+                    $this->logger->debug("CleverReach_CrConnect: Error - ".$tmp->message);
+                    $session->addException($e, $this->__('There was a problem with the unsubscription'));
+                    $this->_redirectReferer();
+                } else {
+                    $this->logger->debug("CleverReach_CrConnect: Error - ".$tmp->message);
+                }
+
+                // If we are unsubscribed in cleverreach, mark us as
+                // unsubscribed in Magento.
+                if ($tmp->data->deactivated) {
+                    try {
+                        $this->logger->debug("CleverReach_CrConnect: Unsubscribing $email");
+                        $this->newsletterSubscriberFactory->create()
+                                ->loadByEmail($email)
+                                ->unsubscribe();
+
+                        $this->customerSession->addSuccess($this->__('You were successfully unsubscribed'));
+                    } catch (Exception $e) {
+                        $this->logger->debug("CleverReach_CrConnect: " . $e->getMessage());
+                        $this->customerSession->addError($this->__('There was an error while saving your subscription details'));
+                    }
+                } else {
+                    $this->logger->debug("CleverReach_CrConnect: Not unsubscribing $email, not unsubscribed in Campaign Monitor");
+                }
+            }
+        }
+
+        $this->_redirect('customer/account');
+    }
+}

@@ -1,0 +1,126 @@
+<?php
+namespace Conlabz\CrConnect\Block\Config;
+
+class GroupsApis extends \Magento\Config\Block\System\Config\Form\Field\FieldArray\AbstractFieldArray
+{
+    protected $magentoOptions;
+
+    /**
+     * @var \Magento\Customer\Model\ResourceModel\Group\CollectionFactory
+     */
+    protected $customerResourceModelGroupCollectionFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\ApiFactory
+     */
+    protected $crConnectApiFactory;
+
+    /**
+     * @var \Conlabz\CrConnect\Helper\Data
+     */
+    protected $crConnectHelper;
+
+    /**
+     * @var \Conlabz\CrConnect\Model\System\Config\Source\EmptyFormsFactory
+     */
+    protected $crConnectSystemConfigSourceEmptyFormsFactory;
+
+    public function __construct(
+        \Magento\Customer\Model\ResourceModel\Group\CollectionFactory $customerResourceModelGroupCollectionFactory,
+        \Conlabz\CrConnect\Model\ApiFactory $crConnectApiFactory,
+        \Conlabz\CrConnect\Helper\Data $crConnectHelper,
+        \Conlabz\CrConnect\Model\System\Config\Source\EmptyFormsFactory $crConnectSystemConfigSourceEmptyFormsFactory
+    )
+    {
+        $this->customerResourceModelGroupCollectionFactory = $customerResourceModelGroupCollectionFactory;
+        $this->crConnectApiFactory = $crConnectApiFactory;
+        $this->crConnectHelper = $crConnectHelper;
+        $this->crConnectSystemConfigSourceEmptyFormsFactory = $crConnectSystemConfigSourceEmptyFormsFactory;
+        
+        /*
+         * Prepare settings columns
+         */
+        $this->addColumn('magento', array(
+            'label' => __('Magento user groups'),
+            'size'  => 28,
+        ));
+        $this->addColumn('crconnect', array(
+            'label' => __('CleverReach Group'),
+            'size'  => 28
+        ));
+        $this->addColumn('formid', array(
+            'label' => __('CleverReach Form'),
+            'size'  => 28
+        ));
+        
+        $this->_addAfter = false;
+        $this->_addButtonLabel = __('Add new group');
+        
+        parent::__construct();
+        $this->setTemplate('crconnect/system/config/form/field/cr_array_groups.phtml');
+        
+        // customer options
+        // Get Magento Groups List
+        $this->magentoOptions = array();
+        $allGroups = $this->customerResourceModelGroupCollectionFactory->create()->toOptionHash();
+        foreach ($allGroups as $key => $allGroup) {
+            $this->magentoOptions[$key] = $allGroup;
+        }
+        
+    }
+    /*
+     * Render Template
+     */
+    protected function _renderCellTemplate($columnName)
+    {
+        
+        if (empty($this->_columns[$columnName])) {
+            throw new \Exception('Wrong column name specified.');
+        }
+        
+        $column     = $this->_columns[$columnName];
+        $inputName  = $this->getElement()->getName() . '[#{_id}][' . $columnName . ']';
+        $inputId  = '#{_id}_' . $columnName . '';
+
+        $api = $this->crConnectApiFactory->create();
+        $groups = array();
+        if ($api->isConnected()) {
+            $groups = $api->getGroupsForKey($this->crConnectHelper->getApiKey());
+            if (!$groups) {
+                $groups = array();
+            }
+        }
+        
+        switch ($columnName) {
+            case 'magento':
+                $rendered = '<select style="width: 200px" name="'.$inputName.'" id="'.$inputId.'">';
+                foreach ($this->magentoOptions as $att => $name) {
+                    $rendered .= '<option value="'.$att.'">'.$name.'</option>';
+                }
+                $rendered .= '</select>';
+                break;
+            case 'crconnect':
+                $rendered = '<select style="width: 200px" class="crconnect-groups-select" onchange="CrC.changeSubGroup(this)" id="'.$inputId.'" name="'.$inputName.'"><option value="">'.__('Please select subscribers group').'</option>';
+                foreach ($groups as $group) {
+                    $rendered .= '<option value="'.$group->id.'">'.$group->name.'</option>';
+                }
+                $rendered .= '</select>';
+                break;
+            case 'formid':
+                $emptyForms = $this->crConnectSystemConfigSourceEmptyFormsFactory->create()->toOptionArray();
+                $rendered = '<select style="width: 200px" name="'.$inputName.'" id="'.$inputId.'" class="crconnect-forms-select">';
+                foreach ($emptyForms as $emptyForm) {
+                    $rendered .= '<option value="'.$emptyForm['value'].'">'.$emptyForm['label'].'</option>';
+                }
+                $rendered .= '</select>';
+                break;
+            default:
+//                $rendered = '<input type="text" name="' . $inputName . '" value="#{' . $columnName . '}" ' . ($column['size'] ? 'size="' . $column['size'] . '"' : '') . '/>';
+                break;
+            
+            
+        }
+        
+        return $rendered;
+    }
+}

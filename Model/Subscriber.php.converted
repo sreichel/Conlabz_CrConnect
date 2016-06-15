@@ -1,0 +1,59 @@
+<?php
+namespace Conlabz\CrConnect\Model;
+
+
+class Subscriber extends \Magento\Framework\Model\AbstractModel
+{
+
+    /**
+     * @var \Conlabz\CrConnect\Model\ApiFactory
+     */
+    protected $crConnectApiFactory;
+
+    public function __construct(
+        \Magento\Framework\Model\Context $context,
+        \Magento\Framework\Registry $registry,
+        \Conlabz\CrConnect\Model\ApiFactory $crConnectApiFactory,
+        \Magento\Framework\Model\ResourceModel\AbstractResource $resource = null,
+        \Magento\Framework\Data\Collection\AbstractDb $resourceCollection = null,
+        array $data = []
+    ) {
+        $this->crConnectApiFactory = $crConnectApiFactory;
+        parent::__construct(
+            $context,
+            $registry,
+            $resource,
+            $resourceCollection,
+            $data
+        );
+    }
+
+    /**
+     *  Subscribe cusotmer
+     */
+    public function subscribe($customer = false, $groupId = 0)
+    {
+        return $this->crConnectApiFactory->create()->subscribe($customer, $groupId);
+    }
+
+    /**
+     * Send activation email for customer
+     */
+    public function formsSendActivationMail($customer = false, $groupId = 0)
+    {
+        return $this->crConnectApiFactory->create()->formsSendActivationMail($customer, $groupId);
+    }
+
+    /**
+     *  Subscribe cusotmer
+     */
+    public function unsubscribe($email = false, $groupId = 0)
+    {
+        return $this->crConnectApiFactory->create()->unsubscribe($email, $groupId);
+    }
+
+    public function updateCustomer($customer, $groupId = 0)
+    {
+        return $this->crConnectApiFactory->create()->update($customer, $groupId);
+    }
+}
