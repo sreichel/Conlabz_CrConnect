@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <layout>
-    <adminhtml_system_config_edit>
+    <adminhtml_system_config_edit_section_crroot>
         <reference name="head">
             <action method="addItem">
                 <type>skin_js</type>
@@ -10,5 +10,5 @@
         <reference name="before_body_end">
             <block type="adminhtml/template" name="crconnect.config" template="crconnect/config.phtml" />
         </reference>
-    </adminhtml_system_config_edit>
+    </adminhtml_system_config_edit_section_crroot>
 </layout>

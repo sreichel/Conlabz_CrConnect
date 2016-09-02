@@ -107,6 +107,14 @@
             </updates>
         </layout>
         <events>
+           <controller_action_layout_load_before>
+                <observers>
+                    <load_layout>
+                        <class>crconnect/observer</class>
+                        <method>beforeLoadLayout</method>
+                    </load_layout>
+                </observers>
+            </controller_action_layout_load_before>
             <admin_system_config_changed_section_crroot>
                 <observers>
                     <catalogindex>

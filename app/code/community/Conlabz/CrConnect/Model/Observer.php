@@ -115,7 +115,7 @@ class Conlabz_CrConnect_Model_Observer
         }
     }
 
-    public function orderPlacedAfter($observer)
+    public function orderPlacedAfter(Varien_Event_Observer $observer)
     {
         try {
             $order = $observer->getOrder();
@@ -178,7 +178,7 @@ class Conlabz_CrConnect_Model_Observer
         return true;
     }
 
-    public function customerDeleted($observer)
+    public function customerDeleted(Varien_Event_Observer $observer)
     {
         $event = $observer->getEvent();
         $customer = $event->getCustomer();
@@ -225,6 +225,14 @@ class Conlabz_CrConnect_Model_Observer
         $setupResult = Mage::getModel('crconnect/api')->setupDefaultCleverReachList();
         if (!$setupResult) {
             $session->addError("Could not connect to or receive any data from CleverReach. Please check your API key, selected group(s) and form(s).");
+        }
+    }
+
+    public function beforeLoadLayout(Varien_Event_Observer $observer)
+    {
+        if (Mage::app()->getRequest()->getParam('section') === 'crroot') {
+            $layout = $observer->getEvent()->getLayout()->getUpdate();
+            $layout->addHandle('adminhtml_system_config_edit_section_crroot');
         }
     }
 }
